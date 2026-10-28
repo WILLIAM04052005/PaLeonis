@@ -1,4 +1,5 @@
 const Ticket = require("../models/Ticket");
+const Technicien = require("../models/Technicien");
 
 async function getAll(req, res, next){
     try{
@@ -61,8 +62,11 @@ async function changerStatut(req, res, next){
 }
 
 // GET /api/techniciens/:id/tickets
+// GET /api/techniciens/:id/tickets — B8 : 404 si le technicien n'existe pas
 async function getByTechnicien(req, res, next){
     try {
+        const technicien = await Technicien.findById(req.params.id);
+        if (!technicien) return res.status(404).json({ erreur: "Technicien introuvable" });
         res.status(200).json(await Ticket.findByTechnicien(req.params.id));
     } catch(err) {
         next(err);
