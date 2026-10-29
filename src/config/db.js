@@ -1,10 +1,7 @@
 const { Pool, types } = require("pg");
 
-// Les dates (DATE) restent en texte "2024-01-15", sinon elles sont décalées d'un jour à cause du fuseau horaire
 types.setTypeParser(1082, (valeur) => valeur);
-// Les prix (NUMERIC) arrivent en nombre et pas en texte
 types.setTypeParser(1700, (valeur) => Number(valeur));
-// Les dates avec heure (TIMESTAMP) restent en texte "2026-10-20 09:12:00", sans décalage horaire
 types.setTypeParser(1114, (valeur) => valeur);
 
 const pool = new Pool({

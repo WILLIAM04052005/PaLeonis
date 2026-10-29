@@ -10,6 +10,8 @@ PostgreSQL garde tout ce qui est lié, contraint et transactionnel (clients, off
 | Événement serveur (N2) | MongoDB | **Volume d'écriture** (milliers/jour), jamais modifié, champs variables selon le type, lu du plus récent au plus ancien | Collection `evenements`, 1 document par événement, discriminator par type, index `{ serveurId: 1, date: -1 }` |
 | Message de ticket (N3) | MongoDB | **Lecture du fil entier** + pièces jointes en liste de taille variable ; pas de transaction avec le reste | Collection `messages` **référencée** par `ticketId`, index `{ ticketId: 1, date: 1 }` |
 
+**Mongoose : des discriminators plutôt que `Mixed` ou des sous-objets facultatifs.** Avec `Mixed`, Mongoose ne valide plus rien : une fiche de VPS sans RAM passerait. Avec des sous-objets facultatifs, rien n'oblige à remplir le bon. Un discriminator donne un schéma par catégorie (et par type d'événement pour N2), avec ses champs obligatoires, et refuse les champs d'une autre catégorie (`strict: "throw"`). Les caractéristiques imprévues du commercial vont dans le champ libre `autres`, sans migration.
+
 Pourquoi pas PostgreSQL pour N1 : une colonne par caractéristique laisserait la plupart à NULL et imposerait un `ALTER TABLE` à chaque nouveauté. Pour N2 : on n'y fait ni jointure ni mise à jour, seulement des écritures massives et des lectures par serveur et par date.
 
 ## 2. Modèles de documents
@@ -41,7 +43,7 @@ Pourquoi pas PostgreSQL pour N1 : une colonne par caractéristique laisserait la
 
 ## 3. Entre les deux bases
 
-**Qui vérifie l'existence ?** L'API, dans le modèle, avant toute écriture Mongo : un `SELECT` dans PostgreSQL sur l'offre, le serveur, le ticket et l'auteur. Absent → **404**. Pour N1, ce `SELECT` donne aussi la catégorie qui choisit le schéma de validation. Pour N3, il vérifie que l'auteur est le client du ticket ou un technicien existant, et qu'un ticket `ferme` est refusé (**409**).
+**Qui vérifie l'existence ?** L'API, dans le modèle, avant toute écriture Mongo : un `SELECT` dans PostgreSQL sur l'offre, le serveur, le ticket et l'auteur. Absent → **404**. Pour N1, ce `SELECT` donne aussi la catégorie qui choisit le schéma de validation. Pour N3, il vérifie que l'auteur est le client du ticket (sinon **403**) ou un technicien existant (sinon **404**), et qu'un ticket `ferme` est refusé (**409**).
 
 **Que deviennent les documents à la suppression ?**
 
@@ -49,6 +51,7 @@ Pourquoi pas PostgreSQL pour N1 : une colonne par caractéristique laisserait la
 | --- | --- | --- |
 | Offre (`DELETE /api/offres/:id`) | Fiche **supprimée** | Refus 409 si l'offre a des abonnements (RESTRICT). Sinon transaction PG ouverte → `DELETE` → `Fiche.deleteOne` → `COMMIT` ; si Mongo échoue, `ROLLBACK` : jamais d'offre fantôme ni de fiche orpheline |
 | Ticket (`DELETE /api/tickets/:id`) | Messages **supprimés** | Même schéma : `DELETE` du ticket puis `Message.deleteMany({ ticketId })` avant le `COMMIT` |
+| Client (`DELETE /api/clients/:id`) | Messages de ses tickets **supprimés** | Ses tickets partent en cascade (`ON DELETE CASCADE`) : l'API supprime leurs messages dans la même transaction |
 | Serveur | Journal **conservé** | L'API n'expose aucune suppression de serveur : il passe `hors_service`. Son journal reste l'historique des incidents |
 
 ## 4. Au-delà du document

@@ -33,7 +33,7 @@ Toutes les routes sont préfixées par `/api`. Corps et réponses en JSON.
 | --- | --- | --- | --- | --- |
 | GET | /offres | — | 200 | B2 |
 | GET | /offres?categorie=vps&en_vente=true | — | 200 | B2 |
-| GET | /offres/:id | — | 200, 400, 404 | B2 |
+| GET | /offres/:id | — | 200, 400, 404 | B2 · TP4 : renvoie aussi `fiche_technique` (MongoDB) |
 | POST | /offres | nom, categorie (vps, mutualise, dedie, domaine), prix_mensuel_ht | 201, 400, 422 | B2 |
 | PUT | /offres/:id | nom, categorie, prix_mensuel_ht | 200, 400, 404, 422 | B2 |
 | PATCH | /offres/:id/retrait | — | 200, 404 | B2, RG2 (pas de DELETE) |
@@ -81,3 +81,51 @@ La souscription et la résiliation sont des transactions : en cas d'erreur, rien
 | Méthode | URL | Body | Réponses | Besoin |
 | --- | --- | --- | --- | --- |
 | GET | /dashboard | — | 200 | B9 : CA mensuel des abonnements actifs (total et par catégorie), serveurs par datacenter et par statut |
+
+# TP4 – Données MongoDB
+
+Les ids PostgreSQL (offre, serveur, ticket, client, technicien) sont vérifiés par l'API avant toute écriture dans MongoDB. Erreurs propres à MongoDB : document invalide ou champ d'une autre catégorie → 422, id mal formé → 400, doublon → 409, MongoDB indisponible → 503 (l'opération est annulée).
+
+## N1 – Fiches techniques des offres
+
+| Méthode | URL | Body | Réponses |
+| --- | --- | --- | --- |
+| GET | /offres/:id | — | 200 (offre PostgreSQL + `fiche_technique` MongoDB, ou `null`), 400, 404 |
+| GET | /offres/:id/fiche | — | 200, 400, 404 (offre inexistante ou sans fiche) |
+| PUT | /offres/:id/fiche | Champs selon la catégorie de l'offre, + `autres` libre | 201 (créée), 200 (remplacée), 400, 404, 422 |
+| DELETE | /offres/:id | — | 204 (offre + fiche supprimées), 404, 409 (l'offre a des abonnements) |
+
+Champs obligatoires par catégorie :
+
+| Catégorie | Champs |
+| --- | --- |
+| vps | vcpu, ram_go, stockage_go, os (liste) · facultatif : type_stockage (SSD, NVMe, HDD) |
+| mutualise | espace_disque_go, nb_sites, nb_bases_donnees · facultatif : certificat_ssl |
+| dedie | processeur, coeurs, ram_go, disques (liste de { type, capacite_go }), bande_passante_gbps |
+| domaine | extension (.fr, .com…), registrar, duree_engagement_mois |
+
+## N2 – Journal d'activité des serveurs
+
+| Méthode | URL | Body | Réponses |
+| --- | --- | --- | --- |
+| POST | /serveurs/:id/evenements | type + champs du type, date facultative | 201, 400 (type absent), 404 (serveur ou technicien), 422 |
+| GET | /serveurs/:id/evenements?type=alerte&debut=2026-10-19&fin=2026-10-28&limite=20 | — | 200 (du plus récent au plus ancien, 50 par défaut, 500 max), 400, 404 |
+| GET | /serveurs/:id/evenements/stats | — | 200 (nombre et date du dernier événement par type, calculés par `aggregate`), 400, 404 |
+
+| Type | Champs obligatoires |
+| --- | --- |
+| redemarrage | motif · facultatif : planifie |
+| alerte | niveau (info, avertissement, critique), message |
+| maintenance | description, duree_minutes · facultatif : technicienId |
+| metrique | cpu, ram, disque (pourcentages de 0 à 100) |
+
+`fin` donnée sous la forme AAAA-MM-JJ inclut toute la journée.
+
+## N3 – Messages des tickets
+
+| Méthode | URL | Body | Réponses |
+| --- | --- | --- | --- |
+| GET | /tickets/:id | — | 200 (ticket PostgreSQL + `messages` MongoDB, ordre chronologique), 400, 404 |
+| POST | /tickets/:id/messages | auteur { type: client ou technicien, id }, contenu, pieces_jointes? [{ nom, url }] | 201, 400, 403 (client qui n'est pas celui du ticket), 404 (ticket ou technicien), 409 (ticket fermé), 422 |
+| DELETE | /tickets/:id | — | 200 (ticket + messages supprimés), 404 |
+| DELETE | /clients/:id | — | 204 (client, ses tickets et leurs messages), 404, 409 (abonnements) |

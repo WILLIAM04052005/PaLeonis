@@ -1,4 +1,5 @@
 const pool = require("../config/db");
+const Message = require("./Message");
 
 class Client {
   static async findAll() {
@@ -6,7 +7,7 @@ class Client {
     return rows;
   }
 
-  // Recherche par nom ou par email (ILIKE = sans tenir compte des majuscules)
+
   static async search(terme) {
     const { rows } = await pool.query(
       "SELECT * FROM client WHERE nom ILIKE $1 OR email ILIKE $1 ORDER BY nom",
@@ -20,7 +21,7 @@ class Client {
     return rows[0];
   }
 
-  // Fiche complète : le client + ses abonnements avec le nom de l'offre et le serveur
+
   static async findFiche(id) {
     const client = await Client.findById(id);
     if (!client) return null;
@@ -56,8 +57,22 @@ class Client {
   }
 
   static async delete(id) {
-    const result = await pool.query("DELETE FROM client WHERE id_client = $1", [id]);
-    return result.rowCount;
+    const conn = await pool.connect();
+    try {
+      await conn.query("BEGIN");
+      const tickets = await conn.query("SELECT id_ticket FROM ticket WHERE id_client = $1", [id]);
+      const result = await conn.query("DELETE FROM client WHERE id_client = $1", [id]);
+      if (result.rowCount > 0 && tickets.rows.length > 0) {
+        await Message.deleteMany({ ticketId: { $in: tickets.rows.map((t) => t.id_ticket) } });
+      }
+      await conn.query("COMMIT");
+      return result.rowCount;
+    } catch (err) {
+      await conn.query("ROLLBACK");
+      throw err;
+    } finally {
+      conn.release();
+    }
   }
 }
 

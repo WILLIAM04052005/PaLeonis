@@ -1,7 +1,7 @@
 const pool = require("../config/db");
+const Fiche = require("./Fiche");
 
 class Offre {
-    // Liste des offres, avec des filtres facultatifs : categorie et en_vente (B2)
     static async findAll(filtres) {
         let sql = "SELECT * FROM offre WHERE 1 = 1";
         const valeurs = [];
@@ -11,7 +11,6 @@ class Offre {
             sql += " AND categorie = $" + valeurs.length;
         }
 
-        // en_vente=true : seulement les offres en vente / en_vente=false : seulement les offres retirées
         if (filtres.en_vente === "true") {
             sql += " AND en_vente = true";
         }
@@ -45,16 +44,37 @@ class Offre {
             "UPDATE offre SET nom = $1, categorie = $2, prix_mensuel_ht = $3 WHERE id_offre = $4 RETURNING *",
             [nom, categorie, prix_mensuel_ht, id]
         );
+        
+        if (rows[0]) await Fiche.deleteOne({ offreId: rows[0].id_offre, categorie: { $ne: rows[0].categorie } });
         return rows[0] ?? null;
     }
 
-    // RG2 : une offre n'est jamais supprimée, elle est retirée de la vente
     static async retirer(id) {
         const { rows } = await pool.query(
             "UPDATE offre SET en_vente = false WHERE id_offre = $1 RETURNING *",
             [id]
         );
         return rows[0] ?? null;
+    }
+
+    static async delete(id) {
+        const conn = await pool.connect();
+        try {
+            await conn.query("BEGIN");
+            const { rows } = await conn.query("DELETE FROM offre WHERE id_offre = $1 RETURNING *", [id]);
+            if (rows.length === 0) {
+                await conn.query("ROLLBACK");
+                return null;
+            }
+            await Fiche.deleteOne({ offreId: rows[0].id_offre });
+            await conn.query("COMMIT");
+            return rows[0];
+        } catch (err) {
+            await conn.query("ROLLBACK");
+            throw err;
+        } finally {
+            conn.release();
+        }
     }
 }
 

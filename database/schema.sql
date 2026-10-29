@@ -79,7 +79,7 @@ CREATE TABLE ticket (
   id_technicien  INT REFERENCES technicien(id_technicien)          ON DELETE SET NULL
 );
 
--- Index sur les colonnes les plus filtrées (B6, B8, B5)
+-- Index sur les colonnes les plus filtrées
 CREATE INDEX idx_serveur_datacenter   ON serveur(id_datacenter);
 CREATE INDEX idx_abonnement_client    ON abonnement(id_client);
 CREATE INDEX idx_ticket_technicien    ON ticket(id_technicien);

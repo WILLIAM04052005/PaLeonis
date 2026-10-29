@@ -1,5 +1,6 @@
 const Ticket = require("../models/Ticket");
 const Technicien = require("../models/Technicien");
+const Message = require("../models/Message");
 
 async function getAll(req, res, next){
     try{
@@ -13,7 +14,9 @@ async function getById(req, res, next){
     try{
         const ticket = await Ticket.findById(req.params.id);
         if(!ticket) return res.status(404).json({ erreur: "Ticket non trouvé"});
-        res.status(200).json(ticket);
+        // TP4 N3 : le ticket (PostgreSQL) et tout son fil (MongoDB), dans l'ordre chronologique
+        const messages = await Message.filDuTicket(ticket.id_ticket);
+        res.status(200).json({ ...ticket, messages });
     } catch(err) {
         next(err);
     }
@@ -61,8 +64,6 @@ async function changerStatut(req, res, next){
     }
 }
 
-// GET /api/techniciens/:id/tickets
-// GET /api/techniciens/:id/tickets — B8 : 404 si le technicien n'existe pas
 async function getByTechnicien(req, res, next){
     try {
         const technicien = await Technicien.findById(req.params.id);
@@ -83,4 +84,17 @@ async function deleteTicket(req, res, next){
     }
 }
 
-module.exports = { getAll, getById, create, assigner, changerStatut, getByTechnicien, delete: deleteTicket };
+async function ajouterMessage(req, res, next){
+    try {
+        const { auteur, contenu } = req.body || {};
+        if (!auteur || !auteur.type || auteur.id === undefined || !contenu) {
+            return res.status(400).json({ erreur: "auteur.type, auteur.id et contenu sont obligatoires" });
+        }
+        const message = await Message.ajouter(req.params.id, req.body);
+        res.status(201).json(message);
+    } catch(err) {
+        next(err);
+    }
+}
+
+module.exports = { getAll, getById, create, assigner, changerStatut, getByTechnicien, ajouterMessage, delete: deleteTicket };

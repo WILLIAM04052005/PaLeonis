@@ -1,7 +1,6 @@
 const pool = require("../config/db");
 
 class Serveur {
-  // Liste des serveurs, avec des filtres facultatifs : datacenter, statut, libre
   static async findAll(filtres) {
     let sql = "SELECT * FROM serveur WHERE 1 = 1";
     const valeurs = [];
@@ -16,7 +15,6 @@ class Serveur {
       sql += " AND statut = $" + valeurs.length;
     }
 
-    // libre=true : pas d'abonnement / libre=false : attribué à un abonnement
     if (filtres.libre === "true") {
       sql += " AND id_abonnement IS NULL";
     }
@@ -35,7 +33,6 @@ class Serveur {
     return rows[0];
   }
 
-  // Nombre de serveurs par datacenter et par statut (B9)
   static async countParDatacenter() {
     const { rows } = await pool.query(
       `SELECT d.nom AS datacenter, s.statut, COUNT(*)::int AS nombre
