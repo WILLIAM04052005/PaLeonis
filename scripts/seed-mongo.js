@@ -1,4 +1,4 @@
-require("dotenv").config();
+require("dotenv").config({ quiet: true });
 const mongoose = require("mongoose");
 const pool = require("../src/config/db");
 const Fiche = require("../src/models/Fiche");

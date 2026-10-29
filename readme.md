@@ -39,6 +39,15 @@ Sans Docker : installer MongoDB Community Server (le service démarre tout seul 
 
 ## 2. Charger les deux jeux d'essai
 
+Le plus simple, une seule commande pour les deux bases (utilise la connexion du `.env`, pas besoin de `psql`) :
+
+```bash
+npm run seed           # remet les données de test à zéro (à lancer avant chaque Run Postman)
+npm run seed:reset     # recrée aussi les tables, après une modification de schema.sql
+```
+
+Ou étape par étape :
+
 PostgreSQL (à faire en premier : les documents Mongo utilisent ses ids) :
 
 ```bash

@@ -5,7 +5,9 @@
   "main": "index.js",
   "scripts": {
     "start": "node src/server.js",
-    "dev": "nodemon src/server.js"
+    "dev": "nodemon src/server.js",
+    "seed": "node scripts/seed-sql.js && node scripts/seed-mongo.js",
+    "seed:reset": "node scripts/seed-sql.js --schema && node scripts/seed-mongo.js"
   },
   "keywords": [],
   "author": "",
