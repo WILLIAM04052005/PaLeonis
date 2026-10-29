@@ -10,7 +10,6 @@ const PG_ERRORS = {
   "22001": [400, "TROP_LONG", "Une valeur dépasse la longueur autorisée"],
 };
 
-// Erreur "métier" avec un code HTTP, lancée depuis un modèle (ex : aucun serveur libre -> 409)
 class HttpError extends Error {
   constructor(status, message) {
     super(message);
@@ -26,17 +25,23 @@ function errorHandler(err, req, res, next) {
   if (err instanceof HttpError) {
     return res.status(err.status).json({ erreur: err.message });
   }
-  // --- Erreurs MongoDB / Mongoose (TP4) ---
-  // Le document ne respecte pas le schéma Mongoose (champ manquant, valeur hors liste...)
+
   if (err.name === "ValidationError") {
     const details = Object.values(err.errors).map((e) => e.message);
     return res.status(422).json({ erreur: "Document invalide", details });
   }
-  // Un id qui n'a pas le format d'un ObjectId (ex. /messages/abc)
+  if (err.name === "StrictModeError") {
+    return res.status(422).json({ erreur: "Document invalide", details: [err.message] });
+  }
+
   if (err.name === "CastError") {
     return res.status(400).json({ erreur: `Valeur invalide pour ${err.path}` });
   }
-  // Valeur déjà existante sur un index unique Mongo (ex. deux fiches pour la même offre)
+
+  if (/^Mongo(ose)?(ServerSelection|Network|NotConnected)Error$/.test(err.name)) {
+    return res.status(503).json({ erreur: "MongoDB est indisponible, l'opération a été annulée" });
+  }
+
   if (err.code === 11000) {
     return res.status(409).json({ erreur: "Ce document existe déjà" });
   }
@@ -44,7 +49,7 @@ function errorHandler(err, req, res, next) {
   if (err.type === "entity.parse.failed") {
     return res.status(400).json({ erreur: "Le body n'est pas un JSON valide" });
   }
-  // Clé étrangère sur un DELETE : la ligne est encore utilisée ailleurs (ex. RG8) -> 409
+
   if (err.code === "23503" && req.method === "DELETE") {
     return res.status(409).json({ erreur: "Suppression impossible : la ressource est encore utilisée" });
   }

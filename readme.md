@@ -17,7 +17,7 @@ API de l'espace client PaLeonis, en Node.js / Express, architecture MVC (routes 
 git clone https://github.com/WILLIAM04052005/PaLeonis.git
 cd PaLeonis
 npm install
-cp .env.example .env      # puis renseigner les vraies valeurs (PostgreSQL et MONGO_URI)
+cp .env.example .env   
 ```
 
 ## 1. Lancer les deux bases
@@ -59,7 +59,7 @@ Les scripts sont rejouables : ils vident les données avant de les réinsérer.
 ## 3. Lancer l'API
 
 ```bash
-npm start        # ou npm run dev
+npm start      # ou npm run dev
 ```
 
 Le terminal doit afficher :

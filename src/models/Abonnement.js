@@ -14,26 +14,25 @@ class Abonnement {
     return rows[0];
   }
 
-  // B3 : souscription. Tout se fait dans une transaction : soit tout réussit, soit rien n'est enregistré
   static async souscrire(idClient, idOffre, idDatacenter) {
     const conn = await pool.connect();
     try {
       await conn.query("BEGIN");
 
-      // 1. On vérifie que l'offre existe et qu'elle est en vente
+ 
       const resultatOffre = await conn.query("SELECT * FROM offre WHERE id_offre = $1", [idOffre]);
       const offre = resultatOffre.rows[0];
       if (!offre) throw new HttpError(404, "Offre introuvable");
       if (!offre.en_vente) throw new HttpError(422, "Cette offre n'est plus en vente");
 
-      // 2. On crée l'abonnement avec le prix du catalogue (si le client n'existe pas, la clé étrangère refuse)
+
       const resultatAbonnement = await conn.query(
         "INSERT INTO abonnement (id_client, id_offre, prix_applique) VALUES ($1, $2, $3) RETURNING *",
         [idClient, idOffre, offre.prix_mensuel_ht]
       );
       const abonnement = resultatAbonnement.rows[0];
 
-      // 3. Si c'est un hébergement (pas un nom de domaine), on attribue un serveur libre du datacenter demandé
+    
       if (offre.categorie !== "domaine") {
         if (!idDatacenter) throw new HttpError(400, "id_datacenter est obligatoire pour un hébergement");
         const dc = await conn.query("SELECT 1 FROM datacenter WHERE id_datacenter = $1", [idDatacenter]);
@@ -58,7 +57,7 @@ class Abonnement {
       await conn.query("COMMIT");
       return abonnement;
     } catch (err) {
-      // Une erreur à n'importe quelle étape : on annule tout
+   
       await conn.query("ROLLBACK");
       throw err;
     } finally {
@@ -66,7 +65,6 @@ class Abonnement {
     }
   }
 
-  // B4 : résiliation. Le statut et la date de fin changent, et le serveur redevient libre
   static async resilier(id) {
     const conn = await pool.connect();
     try {
@@ -94,7 +92,7 @@ class Abonnement {
     return Abonnement.findById(id);
   }
 
-  // Chiffre d'affaires mensuel des abonnements actifs : total et par catégorie d'offre (B9)
+
   static async getChiffreAffaires() {
     const total = await pool.query(
       "SELECT COALESCE(SUM(prix_applique), 0) AS total FROM abonnement WHERE statut = 'actif'"
