@@ -4,6 +4,7 @@ require("dotenv").config();
 //recup express, la config de la bd et le routes dans data...
 const express = require("express");
 const pool = require("./config/db");
+const connectMongo = require("./config/mongo");
 const { errorHandler, notFound } = require("./middlewares/errorHandler");
 
 const datacenterRoutes = require("./routes/datacenterRoutes");
@@ -37,9 +38,21 @@ app.use(notFound);
 //middleware d'erreurs : traduit les erreurs (HttpError et PostgreSQL) en codes HTTP (toujours en dernier)
 app.use(errorHandler);
 
-//verifie la connexion à la base au démarrage
-pool.query("SELECT NOW()")
-  .then(() => console.log("Connecté à PostgreSQL"))
-  .catch((err) => console.error("Connexion BDD impossible :", err.message));
+//démarrage : on se connecte aux DEUX bases avant d'écouter.
+//Si l'une échoue, on affiche l'erreur et on arrête : une API à moitié connectée est pire qu'une API éteinte.
+async function demarrer() {
+  try {
+    await pool.query("SELECT NOW()");
+    console.log("Connecté à PostgreSQL");
 
-app.listen(process.env.PORT, () => console.log(`API lancée sur http://localhost:${process.env.PORT}`));
+    await connectMongo();
+
+    const PORT = process.env.PORT || 3000;
+    app.listen(PORT, () => console.log(`API lancée sur http://localhost:${PORT}`));
+  } catch (err) {
+    console.error("Démarrage impossible :", err.message);
+    process.exit(1);
+  }
+}
+
+demarrer();

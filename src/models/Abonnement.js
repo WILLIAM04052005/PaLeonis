@@ -36,6 +36,8 @@ class Abonnement {
       // 3. Si c'est un hébergement (pas un nom de domaine), on attribue un serveur libre du datacenter demandé
       if (offre.categorie !== "domaine") {
         if (!idDatacenter) throw new HttpError(400, "id_datacenter est obligatoire pour un hébergement");
+        const dc = await conn.query("SELECT 1 FROM datacenter WHERE id_datacenter = $1", [idDatacenter]);
+        if (dc.rowCount === 0) throw new HttpError(404, "Datacenter introuvable");
 
         const resultatServeur = await conn.query(
           `SELECT id_serveur, nom_hote FROM serveur
